@@ -207,7 +207,6 @@ function calc_DᵀN⁻¹D(set_params::SetParams, D_list)
             DᵀN⁻¹D[2npix*(I-1)+1:2npix*I, 2npix*(J-1)+1:2npix*J] = calc_DᵀN⁻¹D_element(set_params, I, J, D_list)
         end
     end
-
     return DᵀN⁻¹D
 end
 
@@ -296,7 +295,7 @@ function calc_DᵀN⁻¹Dcmb_element(set_params::SetParams, I::Int, D_list::Vect
     DᵀN⁻¹Dcmb_element = zeros(2npix, 2npix)
     # D^T*N^-1*D
     for (i, nu_i) in enumerate(set_params.freq_bands)
-        # calc DNm 各周波数要素の計算
+        # calc DNm for each frequency element
         DᵀN⁻¹Dcmb_element .+= D_list[i][I] * set_params.N⁻¹_set[i]
     end
     return DᵀN⁻¹Dcmb_element
