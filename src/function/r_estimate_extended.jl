@@ -8,9 +8,6 @@ function iterative_minimization(set_params::SetParams, fit_params::FitParams)
     r_out = 0.1
     neg2L_pre = -Inf
     neg2L_out = 1e10
-    iterations = Int[]
-    r_values = Float64[]
-    likelihood_values = Float64[]
     iteration = 0
     # set options for MIGRAD optimization (using iminuit)
     while !(abs(neg2L_pre - neg2L_out) <= 1e-2 && abs(r_pre - r_out) <= 1e-5) && iteration < 100
@@ -59,23 +56,21 @@ function iterative_minimization(set_params::SetParams, fit_params::FitParams)
             return calc_likelihood(set_params, fit_params)
         end
         minuit_r = iminuit.Minuit(likelihood_wrapper, fit_params.r_est)
-        minuit_r[:limits] = [(0.0, Inf)]
+        #minuit_r[:limits] = [(0.0, Inf)]
+        minuit_r[:limits] = [(0.0, 1)]
         minuit_r[:errordef] = 1
-        minuit_r.migrad()
-        r_out = minuit_r[:values][1]
-        # reset fg parameters
+        # set previous r value because fit_params.r_est is updated by the previous optimization
         r_pre = fit_params.r_est
+        minuit_r.migrad()
+        # update r value
+        r_out = minuit_r[:values][1]
         fit_params.r_est = r_out
         neg2L_pre = neg2L_out
         neg2L_out = calc_likelihood(set_params, fit_params)
-        push!(iterations, iteration)
-        push!(r_values, r_out)
-        push!(likelihood_values, neg2L_out)
         println("Iteration $iteration: r = $r_out, Likelihood = $neg2L_out")
         println("delta_like = ", abs(neg2L_pre - neg2L_out))
         println("delta_r = ", abs(r_pre - r_out))
     end
-    return fit_params, iterations, r_values, likelihood_values
 end
 
 function estimate_r_distribution(set_params::SetParams, fit_params::FitParams, num_seeds::Int)
@@ -92,11 +87,11 @@ function estimate_r_distribution(set_params::SetParams, fit_params::FitParams, n
         fit_params = deepcopy(original_fit_params)
         set_params.seed = seed
         set_m_vec!(set_params);
-        r_out, beta_d, beta_s, T_d = iterative_minimization(set_params, fit_params)
-        push!(r_values, r_out)
-        push!(beta_s_values, beta_s)
-        push!(beta_d_values, beta_d)
-        push!(T_d_values, T_d)
+        iterative_minimization(set_params, fit_params)
+        push!(r_values, fit_params.r_est)
+        push!(beta_s_values, fit_params.beta_s)
+        push!(beta_d_values, fit_params.beta_d)
+        push!(T_d_values, fit_params.T_d)
     end
-    return r_values, beta_d_values, beta_s_values, T_d_values
+    return r_values, beta_s_values, beta_d_values, T_d_values
 end

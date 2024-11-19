@@ -47,8 +47,8 @@ function make_input_map!(set_params::SetParams)
         synch_data_U = hp.read_map(Synch_name, field=2)
         Dust_data_Q = hp.read_map(Dust_name, field=1)
         Dust_data_U = hp.read_map(Dust_name, field=2)
-        Dust_d0_data_Q = hp.read_map(Dust_name_d0, field=1)
-        Dust_d0_data_U = hp.read_map(Dust_name_d0, field=2)
+        #Dust_d0_data_Q = hp.read_map(Dust_name_d0, field=1)
+        #Dust_d0_data_U = hp.read_map(Dust_name_d0, field=2)
         # Combine maps based on the model
         if set_params.which_model == "s1"
             m_Q = synch_data_Q + cmb_data_Q
@@ -91,8 +91,8 @@ function make_input_map!(set_params::SetParams, cmb::Vector{Float64})
         synch_data_U = hp.read_map(Synch_name, field=2)
         Dust_data_Q = hp.read_map(Dust_name, field=1)
         Dust_data_U = hp.read_map(Dust_name, field=2)
-        Dust_d0_data_Q = hp.read_map(Dust_name_d0, field=1)
-        Dust_d0_data_U = hp.read_map(Dust_name_d0, field=2)
+        #Dust_d0_data_Q = hp.read_map(Dust_name_d0, field=1)
+        #Dust_d0_data_U = hp.read_map(Dust_name_d0, field=2)
         # Combine maps based on the model
         if set_params.which_model == "s1"
             m_Q = synch_data_Q + cmb[2, :]
@@ -164,8 +164,8 @@ function make_data_m_nu(set_params::SetParams, freq::Int)
     synch_data_U = hp.read_map(Synch_name, field=2)
     Dust_data_Q = hp.read_map(Dust_name, field=1)
     Dust_data_U = hp.read_map(Dust_name, field=2)
-    Dust_d0_data_Q = hp.read_map(Dust_name_d0, field=1)
-    Dust_d0_data_U = hp.read_map(Dust_name_d0, field=2)
+    #Dust_d0_data_Q = hp.read_map(Dust_name_d0, field=1)
+    #Dust_d0_data_U = hp.read_map(Dust_name_d0, field=2)
     if set_params.which_model == "s1"
         m_Q = synch_data_Q + cmb_data_Q 
         m_U = synch_data_U + cmb_data_U
@@ -194,16 +194,17 @@ function set_m_vec!(set_params::SetParams)
     npix_a = hp.nside2npix(set_params.nside)
     for (i, nu_i) in enumerate(set_params.freq_bands)
         # Noise map calculation
-        noise_map = noise_sigma_calc(nu_i, set_params.nside, [1, 2, 3] .+ 10 * i)
+        noise_map = noise_sigma_calc(nu_i, set_params.nside, [1, 2, 3] .+ 10 * i .+ 20 * set_params.seed)
         # Artificial noise map (0.2 μK, nside, seed)
-        noise_art = calc_noise_map(0.2, set_params.nside, [1, 1, 1])
+        noise_art_1 = calc_noise_map(0.2, set_params.nside, [4, 5, 6] .+ 10 * i .+ 20 * set_params.seed)
+        noise_art_2 = calc_noise_map(0.2, set_params.nside, [7, 8, 9] .+ 10 * i .+ 20 * set_params.seed)
         m_vec_nu = make_data_m_nu(set_params, nu_i) + [noise_map[1][1]; noise_map[1][2]]
         # Need to make the input map three to expand with spin 2
         smoothed_map = smoothing_map_fwhm([0 * m_vec_nu[1 : npix_a], m_vec_nu[1 : npix_a], m_vec_nu[npix_a + 1 : 2npix_a]], 2200, set_params.nside)
         Q = smoothed_map[2, :]
         U = smoothed_map[3, :]       
-        masked_smoothed_Q = extract_masked_values(set_params, Q + 2noise_art[1][1])
-        masked_smoothed_U = extract_masked_values(set_params, U + 2noise_art[1][2])
+        masked_smoothed_Q = extract_masked_values(set_params, Q + noise_art_1[1][1] + noise_art_2[1][1])
+        masked_smoothed_U = extract_masked_values(set_params, U + noise_art_1[1][2] + noise_art_2[1][2])
         masked_smoothed_m_vec_nu = [masked_smoothed_Q; masked_smoothed_U]       
         push!(m_set, masked_smoothed_m_vec_nu)   
     end
@@ -217,13 +218,14 @@ function set_m_vec!(set_params::SetParams, input_map_nu::Vector{Matrix{Float64}}
     m_set = []
     npix_a = hp.nside2npix(set_params.nside)
     for (i, nu_i) in enumerate(set_params.freq_bands)
-        noise_art = calc_noise_map(0.2, set_params.nside, [1, 1, 1])
+        noise_art_1 = calc_noise_map(0.2, set_params.nside, [4, 5, 6] .+ 10 * i .+ 20 * set_params.seed)
+        noise_art_2 = calc_noise_map(0.2, set_params.nside, [7, 8, 9] .+ 10 * i .+ 20 * set_params.seed)
         # Need to make the input map three to expand with spin 2
         smoothed_map = smoothing_map_fwhm([0 * input_map_nu[i][1, :], input_map_nu[i][2, :], input_map_nu[i][3, :]], 2200, set_params.nside)
         Q = smoothed_map[2, :]
         U = smoothed_map[3, :]       
-        masked_smoothed_Q = extract_masked_values(set_params, Q + 2noise_art[1][1])
-        masked_smoothed_U = extract_masked_values(set_params, U + 2noise_art[1][2])
+        masked_smoothed_Q = extract_masked_values(set_params, Q + noise_art_1[1][1] + noise_art_2[1][1])
+        masked_smoothed_U = extract_masked_values(set_params, U + noise_art_1[1][2] + noise_art_2[1][2])
         masked_smoothed_m_vec_nu = [masked_smoothed_Q; masked_smoothed_U]       
         push!(m_set, masked_smoothed_m_vec_nu)   
     end

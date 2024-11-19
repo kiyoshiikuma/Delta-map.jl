@@ -243,8 +243,7 @@ function calc_A(set_params::SetParams, fit_params::FitParams)
     end
     art_noise = calc_noise_cov_mat(0.2, set_params.nside)
     cov_cmb = set_params.cov_mat_scal + fit_params.r_est[1] * set_params.cov_mat_tens
-    #cov_cmb⁻¹ = positive_definite_inverse(extract_masked_elements(set_params, cov_cmb + art_noise))
-    cov_cmb⁻¹ = positive_definite_inverse(extract_masked_elements(set_params, art_noise) + cov_cmb)
+    cov_cmb⁻¹ = positive_definite_inverse(extract_masked_elements(set_params, cov_cmb + art_noise))
     A = cov_cmb⁻¹ + ΣN⁻¹
     return A
 end
@@ -370,8 +369,7 @@ function calc_likelihood(set_params::SetParams, fit_params::FitParams)
     chi_sq = calc_chi_sq(set_params, fit_params)
     art_noise = calc_noise_cov_mat(0.2, set_params.nside)
     cov_cmb = set_params.cov_mat_scal + fit_params.r_est[1] .* set_params.cov_mat_tens
-    #cov_cmb_art_noise = extract_masked_elements(set_params, cov_cmb + art_noise)
-    cov_cmb_art_noise = extract_masked_elements(set_params, art_noise) + cov_cmb
+    cov_cmb_art_noise = extract_masked_elements(set_params, cov_cmb + art_noise)
     b = calc_B(set_params, fit_params, D_list)
     lnScmb = cholesky_logdet(cov_cmb_art_noise)
     lnDᵀN⁻¹D = cholesky_logdet(calc_DᵀN⁻¹D(set_params, D_list))
