@@ -4,7 +4,6 @@ using NPZ
 using PyCall
 using LinearAlgebra
 @pyimport healpy as hp
-@pyimport numpy as np
 
 mutable struct SetParams
     freq_bands::Vector{Int}
@@ -210,11 +209,10 @@ function calc_Clean_map(set_params::SetParams, fit_params::FitParams)
 end
 
 function calc_chi_sq(set_params::SetParams, fit_params::FitParams)
-    #noise_seed = [1, 2, 3]
+    noise_seed = [1, 2, 3]
     pol_sen = 0.2 # μK  
-    #art_noise_map, sigma = calc_noise_map(pol_sen, nside, noise_seed);
-    Random.seed!(set_params.seed)
-    art_noise_map, _ = calc_noise_map(pol_sen, set_params.nside)
+    art_noise_map = calc_noise_map(pol_sen, set_params.nside, [1, 1, 1])
+    art_noise_map, sigma = calc_noise_map(pol_sen, nside, noise_seed);
     art_noise_cov_mat = calc_noise_cov_mat(0.2, set_params.nside)
     # Calculate the covariance matrix
     cov_mat = extract_masked_elements(set_params, calc_all_cov_mat(set_params, fit_params) + art_noise_cov_mat)
@@ -222,20 +220,21 @@ function calc_chi_sq(set_params::SetParams, fit_params::FitParams)
     Q_1, U_1, x_map, alpha_i = calc_Clean_map(set_params, fit_params)
     npix = hp.nside2npix(set_params.nside)
     xx_map = [x_map[1:npix]'.*0; x_map[1:npix]'; x_map[npix + 1:2 * npix]']
-    smoothing_x_map = smoothing_map_fwhm(xx_map, 2200, set_params.nside) 
-    smoothing_masked_x_map_Q = extract_masked_values(set_params, smoothing_x_map[2,:] + art_noise_map.Q)
-    smoothing_masked_x_map_U = extract_masked_values(set_params, smoothing_x_map[3,:] + art_noise_map.U)
-    x_sm_masked = [smoothing_masked_x_map_Q ; smoothing_masked_x_map_U]
-    return x_sm_masked' / cov_mat * x_sm_masked
+    smootinhg_x_map = smoothing_map_fwhm(xx_map, 2200, set_params.nside) 
+    smoosthing_masked_x_map_Q = extract_masked_values(set_params, smootinhg_x_map[2,:] + art_noise_map[1])
+    smoosthing_masked_x_map_U = extract_masked_values(set_params, smootinhg_x_map[3,:] + art_noise_map[2])
+    x_sm_msked = [smoosthing_masked_x_map_Q ; smoosthing_masked_x_map_U]
+    return x_sm_msked' / cov_mat * x_sm_msked
 end
 
 function calc_likelihood(set_params::SetParams, fit_params::FitParams)
     noise_seed = [1, 2, 3]
     pol_sen = 0.2 # μK  
+    art_noise_map, sigma = calc_noise_map(pol_sen, nside, noise_seed);
     art_noise_cov_mat = calc_noise_cov_mat(0.2, set_params.nside)
     # Calculate the covariance matrix
     cov_mat = extract_masked_elements(set_params,  calc_all_cov_mat(set_params, fit_params) + art_noise_cov_mat)
     chi_sq = calc_chi_sq(set_params, fit_params)
     det_C = cholesky_logdet(cov_mat)
-    return chi_sq + det_C
+    chi_sq + det_C
 end

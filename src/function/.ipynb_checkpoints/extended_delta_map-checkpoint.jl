@@ -4,7 +4,6 @@ using NPZ
 using PyCall
 using LinearAlgebra
 @pyimport healpy as hp
-@pyimport numpy as np
 
 mutable struct SetParams
     freq_bands::Vector{Int}
@@ -85,9 +84,6 @@ function cholesky_decomposition(A::AbstractMatrix)
     A = (A + A') / 2
     # Check if the matrix is positive definite
     if !isposdef(A)
-        #println("Matrix A is not positive definite. Contents of A:")
-        #println(A)
-        #throw(ArgumentError("Matrix is not positive definite. Contents of A:\n$A"))
         throw(ArgumentError("Matrix is not positive definite."))
     end
     # Perform Cholesky decomposition and get the lower triangular matrix
@@ -167,7 +163,7 @@ function set_N⁻¹!(set_params::SetParams)
     for nu_i in set_params.freq_bands
         # calc Noise cov_mat inverse
         freq_name = string(nu_i)
-        dir_noise = "../map_file/noise_map/smoothing_noise_cov_mat/"
+        dir_noise = "/Users/ikumakiyoshi/Library/Mobile Documents/com~apple~CloudDocs/study_fg_rm/program/Deltamap_test/julia_delta-map/make_map/noise_map_make/smoothing_noise_cov_mat/"
         nside_name = "nside_"
         nside_n = string(set_params.nside)
         # Load noise cov_mat

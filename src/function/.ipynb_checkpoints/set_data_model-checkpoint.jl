@@ -4,7 +4,7 @@ function make_input_map_only_cmb!(set_params::SetParams)
     """
     cmb_data_Q = Vector{Vector{Float64}}()
     cmb_data_U = Vector{Vector{Float64}}()
-    base_dir_cmb = "../map_file/cmb_map/"
+    base_dir_cmb = "/Users/ikumakiyoshi/Library/Mobile Documents/com~apple~CloudDocs/study_fg_rm/program/Deltamap_test/julia_delta-map/make_map/cmb_map_make/cmb_map3/"
     nside_str = "_nside_$(set_params.nside)"
     r_name = "r_"
     r_n = string(set_params.r_input)
@@ -26,8 +26,8 @@ function make_input_map!(set_params::SetParams)
     """
     Q_map = Vector{Vector{Float64}}()
     U_map = Vector{Vector{Float64}}()
-    base_dir = "../map_file/fg_map/"
-    base_dir_cmb = "../map_file/cmb_map/"
+    base_dir = "/Users/ikumakiyoshi/Library/Mobile Documents/com~apple~CloudDocs/study_fg_rm/program/Deltamap_test/julia_delta-map/make_map/fg_map_make/fg_map/"
+    base_dir_cmb = "/Users/ikumakiyoshi/Library/Mobile Documents/com~apple~CloudDocs/study_fg_rm/program/Deltamap_test/julia_delta-map/make_map/cmb_map_make/cmb_map3/"
     nside_str = "_nside_$(set_params.nside)"
     r_name = "r_"
     r_n = string(set_params.r_input)
@@ -47,8 +47,8 @@ function make_input_map!(set_params::SetParams)
         synch_data_U = hp.read_map(Synch_name, field=2)
         Dust_data_Q = hp.read_map(Dust_name, field=1)
         Dust_data_U = hp.read_map(Dust_name, field=2)
-        #Dust_d0_data_Q = hp.read_map(Dust_name_d0, field=1)
-        #Dust_d0_data_U = hp.read_map(Dust_name_d0, field=2)
+        Dust_d0_data_Q = hp.read_map(Dust_name_d0, field=1)
+        Dust_d0_data_U = hp.read_map(Dust_name_d0, field=2)
         # Combine maps based on the model
         if set_params.which_model == "s1"
             m_Q = synch_data_Q + cmb_data_Q
@@ -78,7 +78,7 @@ function make_input_map!(set_params::SetParams, cmb::Vector{Float64})
     """
     Q_map = Vector{Vector{Float64}}()
     U_map = Vector{Vector{Float64}}()
-    base_dir = "../map_file/fg_map/"
+    base_dir = "/Users/ikumakiyoshi/Library/Mobile Documents/com~apple~CloudDocs/study_fg_rm/program/Deltamap_test/julia_delta-map/make_map/fg_map_make/fg_map/"
     nside_str = "nside_$(set_params.nside)"
     GHz = "_GHz_"
     for freq in set_params.freq_bands
@@ -91,8 +91,8 @@ function make_input_map!(set_params::SetParams, cmb::Vector{Float64})
         synch_data_U = hp.read_map(Synch_name, field=2)
         Dust_data_Q = hp.read_map(Dust_name, field=1)
         Dust_data_U = hp.read_map(Dust_name, field=2)
-        #Dust_d0_data_Q = hp.read_map(Dust_name_d0, field=1)
-        #Dust_d0_data_U = hp.read_map(Dust_name_d0, field=2)
+        Dust_d0_data_Q = hp.read_map(Dust_name_d0, field=1)
+        Dust_d0_data_U = hp.read_map(Dust_name_d0, field=2)
         # Combine maps based on the model
         if set_params.which_model == "s1"
             m_Q = synch_data_Q + cmb[2, :]
@@ -138,7 +138,6 @@ end
 
 function smoothing_map_fwhm(input_map, input_fwhm, nside)
     """Smoothing map with input_fwhm"""
-    input_map = np.array(input_map)
     alm = hp.sphtfunc.map2alm(input_map, lmax = 2*nside)
     smoothed_map = hp.sphtfunc.alm2map(alm, nside, lmax=2*nside, pixwin=true, verbose=false, fwhm=input_fwhm*pi/10800.)
     return smoothed_map
@@ -147,8 +146,8 @@ end
 function make_data_m_nu(set_params::SetParams, freq::Int)
     N_pix = Healpix.nside2npix(set_params.nside)
     data_m = zeros(Float64, 2 * N_pix)
-    base_dir = "../map_file/fg_map/"
-    base_dir_cmb = "../map_file/cmb_map/"
+    base_dir = "/Users/ikumakiyoshi/Library/Mobile Documents/com~apple~CloudDocs/study_fg_rm/program/Deltamap_test/julia_delta-map/make_map/fg_map_make/fg_map/"
+    base_dir_cmb = "/Users/ikumakiyoshi/Library/Mobile Documents/com~apple~CloudDocs/study_fg_rm/program/Deltamap_test/julia_delta-map/make_map/cmb_map_make/cmb_map3/"
     nside_str = "_nside_$(set_params.nside)"
     r_name = "r_"
     r_n = string(set_params.r_input)
@@ -165,8 +164,8 @@ function make_data_m_nu(set_params::SetParams, freq::Int)
     synch_data_U = hp.read_map(Synch_name, field=2)
     Dust_data_Q = hp.read_map(Dust_name, field=1)
     Dust_data_U = hp.read_map(Dust_name, field=2)
-    #Dust_d0_data_Q = hp.read_map(Dust_name_d0, field=1)
-    #Dust_d0_data_U = hp.read_map(Dust_name_d0, field=2)
+    Dust_d0_data_Q = hp.read_map(Dust_name_d0, field=1)
+    Dust_d0_data_U = hp.read_map(Dust_name_d0, field=2)
     if set_params.which_model == "s1"
         m_Q = synch_data_Q + cmb_data_Q 
         m_U = synch_data_U + cmb_data_U
@@ -193,44 +192,18 @@ function set_m_vec!(set_params::SetParams)
     """
     m_set = []
     npix_a = hp.nside2npix(set_params.nside)
-    Random.seed!(set_params.seed)
     for (i, nu_i) in enumerate(set_params.freq_bands)
         # Noise map calculation
-        noise_map, sigma, pol_sen = noise_sigma_calc(nu_i, set_params.nside)
+        noise_map = noise_sigma_calc(nu_i, set_params.nside, [1, 2, 3] .+ 10 * i)
         # Artificial noise map (0.2 μK, nside, seed)
-        noise_art_1, sigma = calc_noise_map(0.2, set_params.nside)
-        noise_art_2, sigma = calc_noise_map(0.2, set_params.nside)
-        m_vec_nu = make_data_m_nu(set_params, nu_i)
+        noise_art = calc_noise_map(0.2, set_params.nside, [1, 1, 1])
+        m_vec_nu = make_data_m_nu(set_params, nu_i) + [noise_map[1][1]; noise_map[1][2]]
         # Need to make the input map three to expand with spin 2
-        fwhm_con = 2200 * (4 / nside) ^ 2
-        smoothed_map = smoothing_map_fwhm([0 * m_vec_nu[1 : npix_a], m_vec_nu[1 : npix_a], m_vec_nu[npix_a + 1 : 2npix_a]], fwhm_con, set_params.nside)
+        smoothed_map = smoothing_map_fwhm([0 * m_vec_nu[1 : npix_a], m_vec_nu[1 : npix_a], m_vec_nu[npix_a + 1 : 2npix_a]], 2200, set_params.nside)
         Q = smoothed_map[2, :]
         U = smoothed_map[3, :]       
-        masked_smoothed_Q = extract_masked_values(set_params, Q + noise_map.Q + noise_art_1.Q + noise_art_2.Q)
-        masked_smoothed_U = extract_masked_values(set_params, U + noise_map.U + noise_art_1.U + noise_art_2.U)
-        masked_smoothed_m_vec_nu = [masked_smoothed_Q; masked_smoothed_U]       
-        push!(m_set, masked_smoothed_m_vec_nu)   
-    end
-    set_params.m_set = m_set  
-end
-
-function set_m_vec!(set_params::SetParams, input_map_nu::Vector{Matrix{Float64}})
-    """
-    Set m_vec 
-    """
-    m_set = []
-    npix_a = hp.nside2npix(set_params.nside)
-    Random.seed!(set_params.seed)
-    for (i, nu_i) in enumerate(set_params.freq_bands)
-        noise_art_1, sigma = calc_noise_map(0.2, set_params.nside)
-        noise_art_2, sigma = calc_noise_map(0.2, set_params.nside)
-        # Need to make the input map three to expand with spin 2
-        fwhm_con = 2200 * (4 / nside) ^ 2
-        smoothed_map = smoothing_map_fwhm([0 * input_map_nu[i][1, :], input_map_nu[i][2, :], input_map_nu[i][3, :]], fwhm_con, set_params.nside)
-        Q = smoothed_map[2, :]
-        U = smoothed_map[3, :]       
-        masked_smoothed_Q = extract_masked_values(set_params, Q + noise_art_1.Q + noise_art_2.Q)
-        masked_smoothed_U = extract_masked_values(set_params, U + noise_art_1.Q + noise_art_2.Q)
+        masked_smoothed_Q = extract_masked_values(set_params, Q + 2noise_art[1][1])
+        masked_smoothed_U = extract_masked_values(set_params, U + 2noise_art[1][2])
         masked_smoothed_m_vec_nu = [masked_smoothed_Q; masked_smoothed_U]       
         push!(m_set, masked_smoothed_m_vec_nu)   
     end
