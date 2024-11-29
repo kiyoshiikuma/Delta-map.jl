@@ -236,3 +236,31 @@ function set_m_vec!(set_params::SetParams, input_map_nu::Vector{Matrix{Float64}}
     end
     set_params.m_set = m_set  
 end
+
+function set_m_vec_ml!(set_params::SetParams, noise)
+    """
+    Set m_vec
+    """
+    m_set = []
+    npix_a = hp.nside2npix(set_params.nside)
+    Random.seed!(set_params.seed)
+    if noise == false
+        for (i, nu_i) in enumerate(set_params.freq_bands)
+            m_vec_nu = make_data_m_nu(set_params, nu_i)
+            push!(m_set, m_vec_nu)
+        end
+    else
+        for (i, nu_i) in enumerate(set_params.freq_bands)
+            # Noise map calculation
+            noise_map, sigma, pol_sen = noise_sigma_calc(nu_i, set_params.nside)
+            # Artificial noise map (0.2 μK, nside, seed)
+            noise_art_1, sigma = calc_noise_map(0.2, set_params.nside)
+            noise_art_2, sigma = calc_noise_map(0.2, set_params.nside)
+            noise_art_3, sigma = calc_noise_map(0.2, set_params.nside)
+            m_vec_nu = make_data_m_nu(set_params, nu_i) 
+            m_vec_nu_w_anoise = [m_vec_nu[1 : npix_a] + noise_map.Q + noise_art_2.Q + noise_art_3.Q; m_vec_nu[npix_a + 1 : 2npix_a] + noise_map.U + noise_art_2.U + noise_art_3.U]
+            push!(m_set, m_vec_nu_w_anoise) 
+        end
+    end
+    set_params.m_set = m_set  
+end
