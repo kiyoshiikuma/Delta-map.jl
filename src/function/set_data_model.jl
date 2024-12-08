@@ -247,19 +247,29 @@ function set_m_vec_ml!(set_params::SetParams, noise)
     if noise == false
         for (i, nu_i) in enumerate(set_params.freq_bands)
             m_vec_nu = make_data_m_nu(set_params, nu_i)
-            push!(m_set, m_vec_nu)
+            # smoothing CMB + FG map
+            fwhm_con = 2200 * (4 / nside) ^ 2
+            smoothed_map = smoothing_map_fwhm([0 * m_vec_nu[1 : npix_a], m_vec_nu[1 : npix_a], m_vec_nu[npix_a + 1 : 2npix_a]], fwhm_con, set_params.nside)
+            Q_sm = smoothed_map[2, :]
+            U_sm = smoothed_map[3, :]  
+            push!(m_set, [Q_sm; U_sm])
         end
     else
         for (i, nu_i) in enumerate(set_params.freq_bands)
-            # Noise map calculation
-            noise_map, sigma, pol_sen = noise_sigma_calc(nu_i, set_params.nside)
             # Artificial noise map (0.2 μK, nside, seed)
             noise_art_1, sigma = calc_noise_map(0.2, set_params.nside)
             noise_art_2, sigma = calc_noise_map(0.2, set_params.nside)
             noise_art_3, sigma = calc_noise_map(0.2, set_params.nside)
+            # Noise map calculation
+            noise_map, sigma, pol_sen = noise_sigma_calc(nu_i, set_params.nside)
             m_vec_nu = make_data_m_nu(set_params, nu_i) 
-            m_vec_nu_w_anoise = [m_vec_nu[1 : npix_a] + noise_map.Q + noise_art_2.Q + noise_art_3.Q; m_vec_nu[npix_a + 1 : 2npix_a] + noise_map.U + noise_art_2.U + noise_art_3.U]
-            push!(m_set, m_vec_nu_w_anoise) 
+            # smoothing CMB + FG map
+            fwhm_con = 2200 * (4 / nside) ^ 2
+            smoothed_map = smoothing_map_fwhm([0 * m_vec_nu[1 : npix_a], m_vec_nu[1 : npix_a], m_vec_nu[npix_a + 1 : 2npix_a]], fwhm_con, set_params.nside)
+            Q_sm = smoothed_map[2, :]
+            U_sm = smoothed_map[3, :]  
+            m_vec_nu_w_anoise = [Q_sm + noise_map.Q + noise_art_2.Q; U_sm + noise_map.U + noise_art_2.U]
+            push!(m_set, m_vec_nu_w_anoise)   
         end
     end
     set_params.m_set = m_set  
