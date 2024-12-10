@@ -30,6 +30,44 @@ mutable struct FitParams
     """Optimization Parameters"""
 end
 
+mutable struct CholeskyTerms
+    DᵀN⁻¹D_L::Cholesky{Float64, Matrix{Float64}}
+    A_L::Cholesky{Float64, Matrix{Float64}}
+    B_L::Cholesky{Float64, Matrix{Float64}}
+    """Cholesky Decomposition"""
+end
+
+mutable struct MatrixTerms
+    DᵀN⁻¹m::Vector{Float64}
+    DᵀN⁻¹Dcmb::Matrix{Float64}
+    A::Matrix{Float64}
+    """Matrix Terms"""
+end
+
+function set_cholesky_terms!()
+    """
+    Initialize CholeskyTerm with dummy positive definite matrices.
+    """
+    dummy_matrix = Matrix{Float64}(I, 1, 1) 
+    DᵀN⁻¹D_L = cholesky(dummy_matrix)
+    A_L = cholesky(dummy_matrix)
+    B_L = cholesky(dummy_matrix)
+    return CholeskyTerms(DᵀN⁻¹D_L, A_L, B_L)
+end
+
+function set_matrix_terms!()
+    """
+    Initialize MatrixTerms with empty matrices.
+    """
+    empty_vector = Float64[] 
+    empty_matrix = Array{Float64, 2}(undef, 0, 0)
+    return MatrixTerms(
+        empty_vector,  # DᵀN⁻¹m
+        empty_matrix,  # DᵀN⁻¹Dcmb
+        empty_matrix   # A
+    )
+end
+
 function calc_D_elements(fit_params::FitParams, freq)
     """Calculate D elements"""
     freq_bs = 23 * 10^9
@@ -75,64 +113,35 @@ function cholesky_decomposition(A::AbstractMatrix)
     """
     Perform Cholesky decomposition on a positive definite matrix.
     """
-    # Default tolerance
-    default_tol = 1e-11
-    # Check if the matrix is square
-    n, m = size(A)
-    if n != m
-        throw(ArgumentError("Matrix must be square."))
-    end
     # Symmetrize the matrix
     A = (A + A') / 2
     # Check if the matrix is positive definite
-    if !isposdef(A)
-        #println("Matrix A is not positive definite. Contents of A:")
-        #println(A)
-        #throw(ArgumentError("Matrix is not positive definite. Contents of A:\n$A"))
-        throw(ArgumentError("Matrix is not positive definite."))
-    end
     # Perform Cholesky decomposition and get the lower triangular matrix
-    A_cho = cholesky(A).L
+    A_cho = cholesky(A)
     return A_cho
 end
 
 function positive_definite_inverse(A::AbstractMatrix)
     """
-    Compute the inverse of a positive definite matrix.
+    Compute the inverse of a positive definite matrix using Cholesky decomposition
+    and solving with identity matrix.
     """
-    # Check if the matrix is symmetric
-    if A != A'
-        throw(ArgumentError("Matrix is not symmetric."))
-    end
-    # Check if the matrix is positive definite
-    if !isposdef(A)
-        throw(ArgumentError("Matrix is not positive definite."))
-    end
     # Perform Cholesky decomposition
     A_cho = cholesky(A)
-    # Get the lower triangular matrix
-    A_cho_L = A_cho.L
     # Create an identity matrix
-    uni = Matrix{eltype(A)}(I, size(A))
-    # Compute the inverse of the lower triangular matrix (precision-focused)
-    A_cho_L_inv = uni / A_cho_L
-    # Compute the inverse of the matrix
-    A_inv = A_cho_L_inv' * A_cho_L_inv
-    # Convert the upper or lower triangular matrix to a symmetric matrix
-    A_inv_U = Symmetric(A_inv, :U)
-    A_inv_L = Symmetric(A_inv, :L)
-    A_true = 0.5 * (A_inv_U .+ A_inv_L)
-    return A_true
+    uni = Matrix(I, size(A))
+    # Solve for the inverse using the decomposed matrix
+    A_inv = A_cho \ uni
+    return A_inv
 end
 
-function cholesky_logdet(A::AbstractMatrix)
+function cholesky_logdet(A::Cholesky{T, S}) where {T, S <: AbstractMatrix}
     """
     Compute the log-determinant of a positive definite matrix using Cholesky decomposition.
     """
     # Perform Cholesky decomposition
-    A_cho = cholesky_decomposition(A)
     # Twice the log-determinant of the matrix
-    logdet = 2 * sum(log.(diag(A_cho)))
+    logdet = 2 * sum(log.(diag(A.L)))
     return logdet
 end
 
@@ -203,7 +212,7 @@ function calc_DᵀN⁻¹D_element(set_params::SetParams, I, J, D_list)
     return DᵀN⁻¹D_element
 end
 
-function calc_DᵀN⁻¹D(set_params::SetParams, D_list)
+function calc_DᵀN⁻¹D(set_params::SetParams, cholesky_terms::CholeskyTerms, D_list)
     # npix depends on the mask
     npix = count(x -> x == 1, set_params.mask)
     DᵀN⁻¹D = zeros(2npix * set_params.num_I, 2npix * set_params.num_I)
@@ -212,9 +221,9 @@ function calc_DᵀN⁻¹D(set_params::SetParams, D_list)
             DᵀN⁻¹D[2npix*(I-1)+1:2npix*I, 2npix*(J-1)+1:2npix*J] = calc_DᵀN⁻¹D_element(set_params, I, J, D_list)
         end
     end
-
-    return DᵀN⁻¹D
+    cholesky_terms.DᵀN⁻¹D_L = cholesky_decomposition(DᵀN⁻¹D)
 end
+
 
 function calc_DᵀN⁻¹m_element(set_params::SetParams, I, D_list)
     # npix depends on the mask
@@ -228,17 +237,18 @@ function calc_DᵀN⁻¹m_element(set_params::SetParams, I, D_list)
     return DᵀN⁻¹m_element
 end
 
-function calc_DᵀN⁻¹m(set_params::SetParams, D_list)
+function calc_DᵀN⁻¹m(set_params::SetParams, matrix_terms::MatrixTerms, D_list)
     # npix depends on the mask
     npix = count(x -> x == 1, set_params.mask)
     DᵀN⁻¹m = zeros(2npix * set_params.num_I)
     for I in 1:set_params.num_I
         DᵀN⁻¹m[2npix*(I-1)+1:2npix*I] = calc_DᵀN⁻¹m_element(set_params, I, D_list)
     end
+    matrix_terms.DᵀN⁻¹m = DᵀN⁻¹m
     return DᵀN⁻¹m
 end
 
-function calc_A(set_params::SetParams, fit_params::FitParams)
+function calc_A(set_params::SetParams, fit_params::FitParams, cholesky_terms::CholeskyTerms, matrix_terms::MatrixTerms)
     # npix depends on the mask
     npix = count(x -> x == 1, set_params.mask)
     ΣN⁻¹ = zeros(2npix, 2npix)
@@ -249,11 +259,13 @@ function calc_A(set_params::SetParams, fit_params::FitParams)
     art_noise = calc_noise_cov_mat(0.2, set_params.nside)
     cov_cmb = set_params.cov_mat_scal + fit_params.r_est[1] * set_params.cov_mat_tens
     cov_cmb⁻¹ = positive_definite_inverse(extract_masked_elements(set_params, cov_cmb + art_noise))
+    #cov_cmb⁻¹ = positive_definite_inverse(extract_masked_elements(set_params, art_noise) + cov_cmb)
     A = cov_cmb⁻¹ + ΣN⁻¹
-    return A
+    matrix_terms.A = A
+    cholesky_terms.A_L = cholesky_decomposition(A)
 end
 
-function set_M_vec(set_params::SetParams, fit_params::FitParams)
+function set_M_vec(set_params::SetParams)
     # npix depends on the mask
     npix = count(x -> x == 1, set_params.mask)
     N⁻¹m_element = zeros(2npix)
@@ -263,9 +275,7 @@ function set_M_vec(set_params::SetParams, fit_params::FitParams)
         # Calculate DNm for each frequency element
         N⁻¹m_element .+= set_params.N⁻¹_set[i] * set_params.m_set[i]     
     end
-    A = calc_A(set_params, fit_params)
-    A_L = cholesky(A)
-    M = A_L \ N⁻¹m_element
+    M = cholesky_terms.A_L \ N⁻¹m_element
     for j in 1:length(set_params.freq_bands)
         # M_set for each frequency
         push!(M_set, set_params.m_set[j] - M)
@@ -273,11 +283,11 @@ function set_M_vec(set_params::SetParams, fit_params::FitParams)
     return M_set
 end
 
-function calc_DᵀN⁻¹M_element(set_params::SetParams, fit_params::FitParams, I, D_list)
+function calc_DᵀN⁻¹M_element(set_params::SetParams, I, D_list)
     # npix depends on the mask
     npix = count(x -> x == 1, set_params.mask)
     DᵀN⁻¹M_element = zeros(2npix)
-    M_vec_nu = set_M_vec(set_params, fit_params)
+    M_vec_nu = set_M_vec(set_params)
     # Calculate DᵀN⁻¹M
     for (i, nu_i) in enumerate(set_params.freq_bands)
         # Calculate DNm for each frequency element
@@ -286,12 +296,12 @@ function calc_DᵀN⁻¹M_element(set_params::SetParams, fit_params::FitParams, 
     return DᵀN⁻¹M_element
 end
 
-function calc_DᵀN⁻¹M(set_params::SetParams, fit_params::FitParams, D_list)
+function calc_DᵀN⁻¹M(set_params::SetParams, D_list)
     # npix depends on the mask
     npix = count(x -> x == 1, set_params.mask)
     DᵀN⁻¹M = zeros(2npix * set_params.num_I)
     for I in 1:set_params.num_I
-        DᵀN⁻¹M[2npix*(I-1)+1:2npix*I] = calc_DᵀN⁻¹M_element(set_params, fit_params, I, D_list)
+        DᵀN⁻¹M[2npix*(I-1)+1:2npix*I] = calc_DᵀN⁻¹M_element(set_params, I, D_list)
     end
     return DᵀN⁻¹M
 end
@@ -307,12 +317,13 @@ function calc_DᵀN⁻¹Dcmb_element(set_params::SetParams, I::Int, D_list::Vect
     return DᵀN⁻¹Dcmb_element
 end
 
-function calc_DᵀN⁻¹Dcmb(set_params::SetParams, D_list::Vector{Matrix{Float64}})
+function calc_DᵀN⁻¹Dcmb(set_params::SetParams, matrix_terms::MatrixTerms, D_list::Vector{Matrix{Float64}})
     npix = count(x -> x == 1, set_params.mask)
     DᵀN⁻¹Dcmb = zeros(2npix*set_params.num_I, 2npix)
     for I in 1:set_params.num_I
         DᵀN⁻¹Dcmb[2npix*(I-1)+1:2npix*I, 1:2npix] = calc_DᵀN⁻¹Dcmb_element(set_params, I, D_list)
     end
+    matrix_terms.DᵀN⁻¹Dcmb = DᵀN⁻¹Dcmb
     return DᵀN⁻¹Dcmb
 end
 
@@ -326,59 +337,53 @@ function calc_DcmbᵀN⁻¹m(set_params::SetParams)
     return DcmbᵀN⁻¹m
 end
 
-function calc_B(set_params::SetParams, fit_params::FitParams, D_list)
-    DᵀN⁻¹D = calc_DᵀN⁻¹D(set_params, D_list)
-    DᵀN⁻¹Dcmb = calc_DᵀN⁻¹Dcmb(set_params, D_list)
-    DcmbᵀHDcmb = DᵀN⁻¹Dcmb' * (DᵀN⁻¹D \ DᵀN⁻¹Dcmb)
-    A = calc_A(set_params, fit_params)
-    B = - DcmbᵀHDcmb + A
-    return B
+function calc_B(cholesky_terms::CholeskyTerms)
+    DcmbᵀHDcmb = matrix_terms.DᵀN⁻¹Dcmb' * (cholesky_terms.DᵀN⁻¹D_L \ matrix_terms.DᵀN⁻¹Dcmb)
+    B = - DcmbᵀHDcmb + matrix_terms.A
+    cholesky_terms.B_L = cholesky_decomposition(B)
 end
 
-function calc_mN⁻¹DcmbA⁻¹DcmbᵀN⁻¹m(set_params::SetParams, fit_params::FitParams)
+function calc_mN⁻¹DcmbA⁻¹DcmbᵀN⁻¹m(set_params::SetParams)
     DcmbᵀN⁻¹m = calc_DcmbᵀN⁻¹m(set_params)
-    A = calc_A(set_params, fit_params)
-    A_L = cholesky(A)
-    mN⁻¹DcmbA⁻¹DcmbᵀN⁻¹m = DcmbᵀN⁻¹m' * (A_L \ DcmbᵀN⁻¹m)
+    mN⁻¹DcmbA⁻¹DcmbᵀN⁻¹m = DcmbᵀN⁻¹m' * (cholesky_terms.A_L \ DcmbᵀN⁻¹m)
     return mN⁻¹DcmbA⁻¹DcmbᵀN⁻¹m 
 end
 
-function calc_MᵀHM(set_params::SetParams, fit_params::FitParams, D_list)
-    DᵀN⁻¹D = calc_DᵀN⁻¹D(set_params, D_list)
-    DᵀN⁻¹M = calc_DᵀN⁻¹M(set_params, fit_params, D_list)
-    MHM = DᵀN⁻¹M' * (DᵀN⁻¹D \ DᵀN⁻¹M)
-    return MHM
+function calc_MᵀHM_and_MᵀHB⁻¹HM(set_params::SetParams, D_list::Vector{Matrix{Float64}})
+    DᵀN⁻¹M = calc_DᵀN⁻¹M(set_params, D_list)
+    inv_DᵀN⁻¹D_DᵀN⁻¹M = cholesky_terms.DᵀN⁻¹D_L \ DᵀN⁻¹M
+    MHM = DᵀN⁻¹M' * inv_DᵀN⁻¹D_DᵀN⁻¹M
+    DcmbHM = matrix_terms.DᵀN⁻¹Dcmb' * inv_DᵀN⁻¹D_DᵀN⁻¹M
+    MᵀHB⁻¹HM = DcmbHM' * (cholesky_terms.B_L \ DcmbHM)
+    return MHM, MᵀHB⁻¹HM
 end
 
-function calc_MᵀHB⁻¹HM(set_params::SetParams, fit_params::FitParams, D_list::Vector{Matrix{Float64}})
-    DᵀN⁻¹D = calc_DᵀN⁻¹D(set_params, D_list)
-    DᵀN⁻¹Dcmb = calc_DᵀN⁻¹Dcmb(set_params, D_list)
-    DᵀN⁻¹M = calc_DᵀN⁻¹M(set_params, fit_params, D_list)
-    DcmbHM = DᵀN⁻¹Dcmb' * (DᵀN⁻¹D \ DᵀN⁻¹M)
-    B = calc_B(set_params, fit_params, D_list)
-    MᵀHB⁻¹HM = DcmbHM' * (B \ DcmbHM)
-    return MᵀHB⁻¹HM
+function calc_all_terms(set_params::SetParams, fit_params::FitParams, cholesky_terms::CholeskyTerms, matrix_terms::MatrixTerms, D_list::Vector{Matrix{Float64}})
+    calc_DᵀN⁻¹Dcmb(set_params, matrix_terms, D_list)
+    calc_DᵀN⁻¹m(set_params, matrix_terms, D_list)
+    calc_A(set_params, fit_params, cholesky_terms, matrix_terms)
+    calc_DᵀN⁻¹D(set_params, cholesky_terms, D_list)
+    calc_B(cholesky_terms)
 end
 
 function calc_chi_sq(set_params::SetParams, fit_params::FitParams)
     D_list = D_list_set(set_params, fit_params)
-    mN⁻¹DcmbA⁻¹DcmbᵀN⁻¹m = - calc_mN⁻¹DcmbA⁻¹DcmbᵀN⁻¹m(set_params, fit_params)
-    MᵀHM = - calc_MᵀHM(set_params, fit_params, D_list)
-    MᵀHB⁻¹HM = - calc_MᵀHB⁻¹HM(set_params, fit_params, D_list)
-    chi_sq = mN⁻¹DcmbA⁻¹DcmbᵀN⁻¹m + MᵀHM + MᵀHB⁻¹HM
+    calc_all_terms(set_params, fit_params, cholesky_terms, matrix_terms, D_list)
+    mN⁻¹DcmbA⁻¹DcmbᵀN⁻¹m = calc_mN⁻¹DcmbA⁻¹DcmbᵀN⁻¹m(set_params)
+    MᵀHM, MᵀHB⁻¹HM = calc_MᵀHM_and_MᵀHB⁻¹HM(set_params, D_list)
+    chi_sq = - mN⁻¹DcmbA⁻¹DcmbᵀN⁻¹m - MᵀHM - MᵀHB⁻¹HM
     return chi_sq
 end
 
 function calc_likelihood(set_params::SetParams, fit_params::FitParams)
-    D_list = D_list_set(set_params, fit_params)
     chi_sq = calc_chi_sq(set_params, fit_params)
     art_noise = calc_noise_cov_mat(0.2, set_params.nside)
     cov_cmb = set_params.cov_mat_scal + fit_params.r_est[1] .* set_params.cov_mat_tens
     cov_cmb_art_noise = extract_masked_elements(set_params, cov_cmb + art_noise)
-    b = calc_B(set_params, fit_params, D_list)
-    lnScmb = cholesky_logdet(cov_cmb_art_noise)
-    lnDᵀN⁻¹D = cholesky_logdet(calc_DᵀN⁻¹D(set_params, D_list))
-    lnb = cholesky_logdet(b)
+    #cov_cmb_art_noise = extract_masked_elements(set_params, art_noise) + cov_cmb
+    lnScmb = cholesky_logdet(cholesky_decomposition(cov_cmb_art_noise))
+    lnDᵀN⁻¹D = cholesky_logdet(cholesky_terms.DᵀN⁻¹D_L)
+    lnb = cholesky_logdet(cholesky_terms.B_L)
     log_det_part = lnScmb + lnDᵀN⁻¹D + lnb
     return chi_sq + log_det_part #, chi_sq, lnScmb, lnDᵀN⁻¹D, lnb
 end
