@@ -45,8 +45,8 @@ end
 #=================True setting map =================#
 read_tqu(path) = hp.read_map(path, field=(0,1,2))  
 function read_map(set_params::SetParams, freq::Int, nside_in::Int)
-    base_dir = "/Users/ikumakiyoshi/Library/Mobile Documents/com~apple~CloudDocs/study_fg_rm/program/julia_Delta_map/Delta_map_test/map_file/fg_map/"
-    base_dir_cmb = "/Users/ikumakiyoshi/Library/Mobile Documents/com~apple~CloudDocs/study_fg_rm/program/julia_Delta_map/Delta_map_test/map_file/cmb_map_paper/"
+    base_dir = "../input_map/fg_map/"
+    base_dir_cmb = "../input_map/cmb_map/"
     nside_str = "_nside_$(nside_in)"
     r_n    = string(set_params.r_input)
     seed_n = string(set_params.seed)
@@ -58,9 +58,9 @@ function read_map(set_params::SetParams, freq::Int, nside_in::Int)
     Dust10 = joinpath(base_dir,    "Dust_d10_$(freq)$(GHz)$(nside_str).fits")
     cmb  = read_tqu(Cmb)     # (3, Npix)
     s1   = read_tqu(Synch1)
-    s5   = read_tqu(Synch5)
+    #s5   = read_tqu(Synch5)
     d1   = read_tqu(Dust1)
-    d10  = read_tqu(Dust10)
+    #d10  = read_tqu(Dust10)
     m = if set_params.which_model == "s1"
         s1  + cmb
     elseif set_params.which_model == "s5"
@@ -78,7 +78,7 @@ function read_map(set_params::SetParams, freq::Int, nside_in::Int)
 end
 
 function read_cmb_map(set_params::SetParams, nside_in::Int)
-    base_dir_cmb = "/Users/ikumakiyoshi/Library/Mobile Documents/com~apple~CloudDocs/study_fg_rm/program/julia_Delta_map/Delta_map_test/map_file/cmb_map_paper/"
+    base_dir_cmb = "../input_map/cmb_map/"
     nside_str = "_nside_$(nside_in)"
     r_n    = string(set_params.r_input)
     seed_n = string(set_params.seed)

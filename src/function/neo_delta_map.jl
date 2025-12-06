@@ -217,14 +217,14 @@ function set_truncate_TᵀN⁻¹_TᵀN⁻¹T!(set_params::SetParams, mask_path; 
     for nu_i in set_params.freq_bands
         # Load TᵀN⁻¹, TᵀN⁻¹T
         namewo = basename(mask_path)
-        TᵀN⁻¹  = npzread("/Users/ikumakiyoshi/Library/Mobile Documents/com~apple~CloudDocs/study_fg_rm/program/julia_Delta_map/Delta_map/make_noise_covariance_matrix/T_N_inv/TᵀN⁻¹_$(namewo)_nside_$(set_params.nside)_freq_$(nu_i)_lmin_$(2)_lmax_$(set_params.lmax_alm)_$(tag).npy")
-        TᵀN⁻¹T = npzread("/Users/ikumakiyoshi/Library/Mobile Documents/com~apple~CloudDocs/study_fg_rm/program/julia_Delta_map/Delta_map/make_noise_covariance_matrix/T_N_inv_T/TᵀN⁻¹T_$(namewo)_nside_$(set_params.nside)_freq_$(nu_i)_lmin_$(2)_lmax_$(set_params.lmax_alm)_$(tag).npy")
+        TᵀN⁻¹  = npzread("../make_noise_covariance_matrix/T_N_inv/TᵀN⁻¹_$(namewo)_nside_$(set_params.nside)_freq_$(nu_i)_lmin_$(2)_lmax_$(set_params.lmax_alm)_$(tag).npy")
+        TᵀN⁻¹T = npzread("../make_noise_covariance_matrix/T_N_inv_T/TᵀN⁻¹T_$(namewo)_nside_$(set_params.nside)_freq_$(nu_i)_lmin_$(2)_lmax_$(set_params.lmax_alm)_$(tag).npy")
         push!(TᵀN⁻¹_set, TᵀN⁻¹)
         push!(TᵀN⁻¹T_set, TᵀN⁻¹T)
     end
 
     namewo = basename(mask_path)
-    T0_set = npzread("/Users/ikumakiyoshi/Library/Mobile Documents/com~apple~CloudDocs/study_fg_rm/program/julia_Delta_map/Delta_map/make_noise_covariance_matrix/T_matrix/T0_$(namewo)_nside_$(set_params.nside)_lmin_$(2)_lmax_$(set_params.lmax_alm)")
+    T0_set = npzread("../make_noise_covariance_matrix/T_matrix/T0_$(namewo)_nside_$(set_params.nside)_lmin_$(2)_lmax_$(set_params.lmax_alm)")
 
     set_params.TᵀN⁻¹_set  = TᵀN⁻¹_set
     set_params.TᵀN⁻¹T_set = TᵀN⁻¹T_set

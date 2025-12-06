@@ -396,7 +396,7 @@ function set_truncate_N⁻¹!(set_params::SetParams, lmin, lmax; tag::AbstractSt
     art_noise_cov_mat = calc_noise_cov_mat(0.2, set_params.nside)
     for nu_i in set_params.freq_bands
         freq_name = string(nu_i)
-        dir_noise = "/Users/ikumakiyoshi/Library/Mobile Documents/com~apple~CloudDocs/study_fg_rm/program/julia_Delta_map/Delta_map/make_noise_covariance_matrix/smoothing_noise_cov_mat/"
+        dir_noise = "../make_noise_covariance_matrix/smoothing_noise_cov_mat/"
         nside_name = "nside_"
         nside_n = string(set_params.nside)
         lmin_n = "_lmin_"
